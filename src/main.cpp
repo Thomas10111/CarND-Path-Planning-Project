@@ -70,11 +70,12 @@ int main() {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
-    if (length && length > 2 && data[0] == '4' && data[1] == '2') {
-
+    if (length && length > 2 && data[0] == '4' && data[1] == '2') 
+    {
       auto s = hasData(data);
 
-      if (s != "") {
+      if (s != "") 
+      {
         auto j = json::parse(s);
         
         string event = j[0].get<string>();
@@ -100,9 +101,9 @@ int main() {
           // Sensor Fusion Data, a list of all other cars on the same side 
           //   of the road.
           auto sensor_fusion = j[1]["sensor_fusion"];
-
-          //vector<double> next_x_vals;
-          //vector<double> next_y_vals;
+          
+          vector<double> next_x_vals;
+          vector<double> next_y_vals;
 
           /**
            * TODO: define a path made up of (x,y) points that the car will visit
@@ -206,9 +207,6 @@ int main() {
 		  
 		  tk::spline s;
 		  s.set_points(ptsx, ptsy);
-		  
-		  vector<double> next_x_vals;
-		  vector<double> next_y_vals;
 		  
 		  for( int i = 0; i < previous_path_x.size(); ++i)
 		  {
