@@ -7,6 +7,7 @@
 #include "Eigen-3.3/Eigen/QR"
 #include "helpers.h"
 #include "json.hpp"
+#include "spline.h"
 
 // for convenience
 using nlohmann::json;
@@ -54,16 +55,18 @@ int main() {
     map_waypoints_dy.push_back(d_y);
   }
   
-  // start in lane 1
-  int lane = 1;
-  
-  // reference velocity
-  double ref_vel = 0; //mph
 
   h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
                &map_waypoints_dx,&map_waypoints_dy]
               (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
-               uWS::OpCode opCode) {
+               uWS::OpCode opCode) 
+  {
+    // start in lane 1
+  	int lane = 1;
+  
+ 	// reference velocity
+  	double ref_vel = 0; //mph  
+                                   
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
@@ -98,8 +101,8 @@ int main() {
           //   of the road.
           auto sensor_fusion = j[1]["sensor_fusion"];
 
-          vector<double> next_x_vals;
-          vector<double> next_y_vals;
+          //vector<double> next_x_vals;
+          //vector<double> next_y_vals;
 
           /**
            * TODO: define a path made up of (x,y) points that the car will visit
@@ -113,12 +116,12 @@ int main() {
 			  car_s = end_path_s;
 		  }
 		  
-		  bool too_close == false;
+		  bool too_close = false;
 		  
 		  for(int i = 0; i < sensor_fusion.size(); ++i)
 		  {
 			  float d = sensor_fusion[i][6];	// d value of car i, What lane is car i in?
-			  if( d < (2+4*lane + 2) && d > (2+4*lane - 2) )
+			  if( d < (2+4 * lane + 2) && d > (2+4*lane - 2) )
 			  {
 				  double vx = sensor_fusion[i][3]; // x velocity of car i
 				  double vy = sensor_fusion[i][4]; // y velocity
@@ -126,7 +129,7 @@ int main() {
 				  double check_car_s = sensor_fusion[i][5];  // s coordinate
 				  
 				  check_car_s += ((double)prev_size * 0.2 * check_speed);
-				  if( (check_car_s > car_s) && (check_car_s - car_s) < 30) )
+				  if( (check_car_s > car_s) && (check_car_s - car_s) < 30 )
 				  {
 					  //ref_vel = 29.5; //mph
 					  too_close = true;
@@ -179,9 +182,9 @@ int main() {
 			  ptsy.push_back(ref_y);			  
 		  }
 			  
-		  vector<double> next_wp0 = getXY(car_s + 30, (2+4*lane), map_waypoints_x, map_waypoints_y);
-		  vector<double> next_wp1 = getXY(car_s + 60, (2+4*lane), map_waypoints_x, map_waypoints_y);
-		  vector<double> next_wp2 = getXY(car_s + 90, (2+4*lane), map_waypoints_x, map_waypoints_y);
+		  vector<double> next_wp0 = getXY(car_s + 30, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+		  vector<double> next_wp1 = getXY(car_s + 60, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
+		  vector<double> next_wp2 = getXY(car_s + 90, (2+4*lane), map_waypoints_s, map_waypoints_x, map_waypoints_y);
 
 		  ptsx.push_back(next_wp0[0]);
 		  ptsx.push_back(next_wp1[0]);
@@ -202,7 +205,7 @@ int main() {
 		  }
 		  
 		  tk::spline s;
-		  s.set_points(ptsx, ptsy):
+		  s.set_points(ptsx, ptsy);
 		  
 		  vector<double> next_x_vals;
 		  vector<double> next_y_vals;
@@ -221,7 +224,7 @@ int main() {
 		  
 		  for(int i = 1; i <= 50 - previous_path_x.size(); ++i)
 		  {
-			  double N = (target_dist / 0.02 * ref_val / 2.24);
+			  double N = (target_dist / 0.02 * ref_vel / 2.24);
 			  double x_point = x_add_on + target_x/N;
 			  double y_point = s(x_point);
 			  
