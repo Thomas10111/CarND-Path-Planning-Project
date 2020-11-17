@@ -102,9 +102,6 @@ int main() {
           // Sensor Fusion Data, a list of all other cars on the same side 
           //   of the road.
           auto sensor_fusion = j[1]["sensor_fusion"];
-          
-          vector<double> next_x_vals;
-          vector<double> next_y_vals;
 
           /**
            * TODO: define a path made up of (x,y) points that the car will visit
@@ -205,12 +202,15 @@ int main() {
 			  double shift_y = ptsx[i]-ref_y;
 			  
 			  ptsx[i] = (shift_x * cos(0-ref_yaw) - shift_y * sin(0-ref_yaw));
-			  ptsy[i] = (shift_x * sin(0-ref_yaw) - shift_y * cos(0-ref_yaw));
+			  ptsy[i] = (shift_x * sin(0-ref_yaw) + shift_y * cos(0-ref_yaw));
 			  
 		  }
 		  
 		  tk::spline s;
 		  s.set_points(ptsx, ptsy);
+		  
+		  vector<double> next_x_vals;
+          vector<double> next_y_vals;
 		  
 		  for( int i = 0; i < previous_path_x.size(); ++i)
 		  {
