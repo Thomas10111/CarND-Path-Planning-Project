@@ -130,7 +130,7 @@ int main() {
 				  double check_speed = sqrt(vx*vx + vy*vy);
 				  double check_car_s = sensor_fusion[i][5];  // s coordinate
 				  
-				  check_car_s += ((double)prev_size * 0.2 * check_speed);
+				  check_car_s += ((double)prev_size * 0.02 * check_speed);
 				  if( (check_car_s > car_s) && (check_car_s - car_s) < 30 )
 				  {
 					  //ref_vel = 29.5; //mph
@@ -236,7 +236,7 @@ int main() {
 			  double y_ref = y_point;
 			  
 			  x_point = x_ref * cos(ref_yaw) - y_ref * sin(ref_yaw);
-			  y_point = y_ref * sin(ref_yaw) + y_ref * cos(ref_yaw);
+			  y_point = x_ref * sin(ref_yaw) + y_ref * cos(ref_yaw);
 			  
 			  x_point += ref_x;
 			  y_point += ref_y;
