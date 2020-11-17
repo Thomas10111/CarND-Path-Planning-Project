@@ -55,17 +55,18 @@ int main() {
     map_waypoints_dy.push_back(d_y);
   }
   
+  // start in lane 1
+  int lane = 1;
+  
+  // reference velocity
+  double ref_vel = 0; //mph  
+  
 
-  h.onMessage([&map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
-               &map_waypoints_dx,&map_waypoints_dy]
+  h.onMessage([&ref_vel, &map_waypoints_x,&map_waypoints_y,&map_waypoints_s,
+               &map_waypoints_dx,&map_waypoints_dy, &lane]
               (uWS::WebSocket<uWS::SERVER> ws, char *data, size_t length,
                uWS::OpCode opCode) 
   {
-    // start in lane 1
-  	int lane = 1;
-  
- 	// reference velocity
-  	double ref_vel = 0; //mph  
                                    
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
@@ -147,7 +148,10 @@ int main() {
 		  {
 			  ref_vel -= .224;  // 5m/s^2
 		  }
-		  
+		  else if(ref_vel < MAX_VELOCITY_MPH)
+          {
+            ref_vel += .224;
+          }
 		
 		  vector<double> ptsx;
 		  vector<double> ptsy;
@@ -232,7 +236,7 @@ int main() {
 			  double y_ref = y_point;
 			  
 			  x_point = x_ref * cos(ref_yaw) - y_ref * sin(ref_yaw);
-			  y_point = x_ref * sin(ref_yaw) + y_ref * cos(ref_yaw);
+			  y_point = y_ref * sin(ref_yaw) + y_ref * cos(ref_yaw);
 			  
 			  x_point += ref_x;
 			  y_point += ref_y;
