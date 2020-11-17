@@ -81,7 +81,8 @@ int main() {
         
         string event = j[0].get<string>();
         
-        if (event == "telemetry") {
+        if (event == "telemetry") 
+        {
           // j[1] is the data JSON object
           
           // Main car's localization Data
@@ -148,8 +149,8 @@ int main() {
 		  else if(ref_vel < MAX_VELOCITY_MPH)
           {
             ref_vel += .224;
-          }
-		
+          }          
+          
 		  vector<double> ptsx;
 		  vector<double> ptsy;
 		  
@@ -157,6 +158,7 @@ int main() {
 		  double ref_y = car_y;
 		  double ref_yaw = deg2rad(car_yaw);
 		  
+          std::cout << "ref_vel: " << ref_vel << "  prev_size: " << prev_size << "   lane: " << lane << std::endl;
 		  if(prev_size < 2) //no previous point
 		  {
 			  double prev_car_x = car_x - cos(car_yaw);
@@ -199,7 +201,7 @@ int main() {
 		  for( int i = 0; i<ptsx.size(); ++i)
 		  {
 			  double shift_x = ptsx[i]-ref_x;
-			  double shift_y = ptsx[i]-ref_y;
+			  double shift_y = ptsy[i]-ref_y;
 			  
 			  ptsx[i] = (shift_x * cos(0-ref_yaw) - shift_y * sin(0-ref_yaw));
 			  ptsy[i] = (shift_x * sin(0-ref_yaw) + shift_y * cos(0-ref_yaw));
@@ -226,7 +228,7 @@ int main() {
 		  
 		  for(int i = 1; i <= 50 - previous_path_x.size(); ++i)
 		  {
-			  double N = (target_dist / 0.02 * ref_vel / 2.24);
+			  double N = target_dist /( 0.02 * ref_vel / 2.24);
 			  double x_point = x_add_on + target_x/N;
 			  double y_point = s(x_point);
 			  
@@ -245,7 +247,21 @@ int main() {
 			  next_y_vals.push_back(y_point);
 			  
 		  }
-		  
+          
+		  std::cout << "next_x_vals: ";
+          for(int i = 0; i < next_x_vals.size(); ++i)
+          {
+            std::cout << next_x_vals[i] << ", ";
+          }
+          std::cout << std::endl;
+          
+          std::cout << "next_y_vals: ";
+          for(int i = 0; i < next_y_vals.size(); ++i)
+          {
+            std::cout << next_y_vals[i] << ", ";
+          }
+          std::cout << std::endl;
+          
 		  json msgJson;
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
