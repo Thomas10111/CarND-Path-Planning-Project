@@ -17,6 +17,10 @@ using std::vector;
 #define LANE_WIDTH_M (4)
 #define MINIMAL_GAP_M (30)
 #define MAX_VELOCITY_MPH (49.5)
+#define MAX_VELOCITY_KMPH (MAX_VELOCITY_MPH * 1.6)
+#define MIN_DISTANCE_CAR (10)
+
+enum behavior {Keep_Lane = 0, Lane_Change_Left = 1, Lane_Change_Right = 2};
 
 int main() {
   uWS::Hub h;
@@ -34,6 +38,9 @@ int main() {
   double max_s = 6945.554;
 
   std::ifstream in_map_(map_file_.c_str(), std::ifstream::in);
+  
+  //write to file
+  std::freopen( "output.txt", "w", stdout );
 
   string line;
   while (getline(in_map_, line)) {
@@ -117,39 +124,125 @@ int main() {
 		  }
 		  
 		  bool too_close = false;
-		  
-		  for(int i = 0; i < sensor_fusion.size(); ++i)
+		  float cost[] = {1.0, 1.0, 1.0};
+          if(lane == 0) cost[Lane_Change_Left] = 100;
+          if(lane == 2) cost[Lane_Change_Right] = 100;
+          
+		  // lane 0 is left most lane
+          for(int i = 0; i < sensor_fusion.size(); ++i)
 		  {
-			  float d = sensor_fusion[i][6];	// d value of car i, What lane is car i in?
-			  if( d < (2+4 * lane + 2) && d > (2+4*lane - 2) )
-			  {
-				  double vx = sensor_fusion[i][3]; // x velocity of car i
-				  double vy = sensor_fusion[i][4]; // y velocity
-				  double check_speed = sqrt(vx*vx + vy*vy);
-				  double check_car_s = sensor_fusion[i][5];  // s coordinate
-				  
-				  check_car_s += ((double)prev_size * 0.02 * check_speed);
-				  if( (check_car_s > car_s) && (check_car_s - car_s) < 30 )
-				  {
-					  //ref_vel = 29.5; //mph
-					  too_close = true;
-					  
-					  if(lane > 0)
-					  {
-						  lane = 0;  //most left lane
-					  }
-				  }
-			  }			  
-		  }
-		  
-		  if( too_close )
-		  {
-			  ref_vel -= .224;  // 5m/s^2
-		  }
-		  else if(ref_vel < MAX_VELOCITY_MPH)
+			double vx = sensor_fusion[i][3]; // x velocity of car i
+			double vy = sensor_fusion[i][4]; // y velocity
+			double check_speed = sqrt(vx*vx + vy*vy);
+			double check_car_s = sensor_fusion[i][5];  // s coordinate  
+            check_car_s += ((double)prev_size * 0.02 * check_speed);
+            float d = sensor_fusion[i][6];	// d value of car i, What lane is car i in?
+            float min_distance_car = abs(check_speed - ref_vel) * 1.5 + MIN_DISTANCE_CAR;
+            float distance = check_car_s - car_s;
+                       
+            int check_lane = -1;
+            if( d < (2+4 * 0 + 2) && d > (2+4*0 - 2) ) check_lane = 0;
+            if( d < (2+4 * 1 + 2) && d > (2+4*1 - 2) ) check_lane = 1;
+            if( d < (2+4 * 2 + 2) && d > (2+4*2 - 2) ) check_lane = 2;
+            
+            std::cout << i <<":  check_speed: " << check_speed << " car_s: " << car_s <<  "  check_car_s: " << check_car_s << "  d: " << d << "  check_lane: " << check_lane
+              		  << "  min_distance_car: " << min_distance_car << "  distance: " << distance << std::endl;
+            
+            if( d < (2+4 * lane + 2) && d > (2+4*lane - 2) )	//my lane?
+			{  				  
+              if( (check_car_s > car_s) && (check_car_s - car_s) < 30 ) // car in front?
+              {
+                too_close = true;
+              }              
+            }
+            
+            // cost current lane
+            if( d < (2+4 * (lane + 0) + 2) && d > (2+4*(lane+0) - 2) )	// current lane?
+            {             
+			  if( check_car_s > (car_s + min_distance_car) )
+              {
+                cost[Keep_Lane] += 1.0 - check_speed/MAX_VELOCITY_KMPH; 
+              }
+            }
+            else
+            {
+              cost[Keep_Lane] += 0.0;
+            }
+            
+            // cost one lane right
+            if( d < (2+4 * (lane + 1) + 2) && d > (2+4*(lane+1) - 2) && (lane + 1) <= 2  )	// car in right lane?
+            {             
+              if(   ( check_car_s < car_s && (check_car_s + min_distance_car) > car_s )  
+                 || ( check_car_s > car_s && (check_car_s - min_distance_car) < car_s ) )
+              {
+                //right lane not free                
+                cost[Lane_Change_Right] += 1.0;
+              }
+              else if( check_car_s > (car_s + min_distance_car) )
+              {
+                cost[Lane_Change_Right] += 1.0 - check_speed/MAX_VELOCITY_KMPH; 
+              }
+            }
+            else
+            {
+              cost[Lane_Change_Right] += 0.0;
+            }
+            
+            // cost one lane left
+            if( d < (2+4 * (lane - 1) + 2) && d > (2+4*(lane-1) - 2) && (lane - 1) >= 0  )	//car in left lane?
+            {
+              if(   ( check_car_s < car_s && (check_car_s + min_distance_car) > car_s )  
+                 || ( check_car_s > car_s && (check_car_s - min_distance_car) < car_s ) )
+              {
+                //right lane not free                
+                cost[Lane_Change_Left] += 1.0;
+              }
+              else if( check_car_s > (car_s + min_distance_car) )
+              {
+                cost[Lane_Change_Left] += 1.0 - check_speed/MAX_VELOCITY_KMPH; 
+              }
+            }
+            else
+            {
+              cost[Lane_Change_Left] += 0.0;
+            }
+          }
+
+          int idx_min_cost = -1;
+          float min_cost = 99999.0;
+          for(int i = 0; i<3; i++)
           {
-            ref_vel += .224;
-          }          
+            if(cost[i] < min_cost)
+            {
+              min_cost = cost[i];
+              idx_min_cost = i;
+            }
+          }
+          
+          std::cout<<"costs: ";
+          for(float c: cost)std::cout << c << "  "; 
+          std::cout<<std::endl;
+          
+          switch(idx_min_cost)
+          {
+            case Keep_Lane:                        
+              if( too_close )
+              {
+                  ref_vel -= .224;  // 5m/s^2
+              }
+              else if(ref_vel < MAX_VELOCITY_MPH)
+              {                
+                //ref_vel += .324;
+                ref_vel += .224;
+              }  
+              break;
+            case Lane_Change_Left:
+              lane = lane -1;
+              break;
+            case Lane_Change_Right:
+              lane = lane +1;
+          }
+              
           
 		  vector<double> ptsx;
 		  vector<double> ptsy;
@@ -248,19 +341,19 @@ int main() {
 			  
 		  }
           
-		  std::cout << "next_x_vals: ";
-          for(int i = 0; i < next_x_vals.size(); ++i)
-          {
-            std::cout << next_x_vals[i] << ", ";
-          }
-          std::cout << std::endl;
+//			std::cout << "next_x_vals: ";
+//           for(int i = 0; i < next_x_vals.size(); ++i)
+//           {
+//             std::cout << next_x_vals[i] << ", ";
+//           }
+//           std::cout << std::endl;
           
-          std::cout << "next_y_vals: ";
-          for(int i = 0; i < next_y_vals.size(); ++i)
-          {
-            std::cout << next_y_vals[i] << ", ";
-          }
-          std::cout << std::endl;
+//           std::cout << "next_y_vals: ";
+//           for(int i = 0; i < next_y_vals.size(); ++i)
+//           {
+//             std::cout << next_y_vals[i] << ", ";
+//           }
+//           std::cout << std::endl;
           
 		  json msgJson;
           msgJson["next_x"] = next_x_vals;
