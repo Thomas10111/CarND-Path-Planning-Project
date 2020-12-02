@@ -21,6 +21,7 @@ using std::vector;
 #define MIN_DISTANCE_CAR (10)
 
 enum behavior {Keep_Lane = 0, Lane_Change_Left = 1, Lane_Change_Right = 2};
+int Number_Lanes = 3;
 
 int main() {
   uWS::Hub h;
@@ -124,9 +125,12 @@ int main() {
 		  }
 		  
 		  bool too_close = false;
-		  float cost[] = {1.0, 1.0, 1.0};
+		  float cost[] = {0.0, 0.0, 0.0};
           if(lane == 0) cost[Lane_Change_Left] = 100;
           if(lane == 2) cost[Lane_Change_Right] = 100;
+          
+          float dist_closes_car[Number_Lanes] = {99999.0, 99999.0, 99999.0};
+          float cost_lane[] = {0.0, 0.0, 0.0};
           
 		  // lane 0 is left most lane
           for(int i = 0; i < sensor_fusion.size(); ++i)
@@ -137,7 +141,14 @@ int main() {
 			double check_car_s = sensor_fusion[i][5];  // s coordinate  
             check_car_s += ((double)prev_size * 0.02 * check_speed);
             float d = sensor_fusion[i][6];	// d value of car i, What lane is car i in?
-            float min_distance_car = abs(check_speed - ref_vel) * 1.5 + MIN_DISTANCE_CAR;
+            //float min_distance_car = abs(check_speed - car_speed) * 1.5 + MIN_DISTANCE_CAR;
+            
+            float min_distance_car_front = (car_speed - check_speed) * 1.5 + MIN_DISTANCE_CAR;
+            if(min_distance_car_front < MIN_DISTANCE_CAR) min_distance_car_front = MIN_DISTANCE_CAR;
+            
+            float min_distance_car_back = (check_speed - car_speed) * 1.5 + MIN_DISTANCE_CAR;
+            if(min_distance_car_back < MIN_DISTANCE_CAR) min_distance_car_back = MIN_DISTANCE_CAR;
+            
             float distance = check_car_s - car_s;
                        
             int check_lane = -1;
@@ -145,8 +156,16 @@ int main() {
             if( d < (2+4 * 1 + 2) && d > (2+4*1 - 2) ) check_lane = 1;
             if( d < (2+4 * 2 + 2) && d > (2+4*2 - 2) ) check_lane = 2;
             
-            std::cout << i <<":  check_speed: " << check_speed << " car_s: " << car_s <<  "  check_car_s: " << check_car_s << "  d: " << d << "  check_lane: " << check_lane
-              		  << "  min_distance_car: " << min_distance_car << "  distance: " << distance << std::endl;
+            std::cout << i <<":  car_s: " << car_s << "  car_speed: " << car_speed << "  check_speed: " << check_speed << "  check_car_s: " << check_car_s << "  d: " << d << "  check_lane: " << check_lane
+              		  << "  min_distance_car_front: " << min_distance_car_front << "  min_distance_car_back: " << min_distance_car_back << "  distance: " << distance << std::endl;
+            
+            
+            // costs per lane
+            if(distance > min_distance_car_front && distance < dist_closes_car[check_lane])
+            {
+              dist_closes_car[check_lane] = distance;       
+              cost_lane[check_lane] = 1.0 - check_speed/MAX_VELOCITY_KMPH; 
+            }
             
             if( d < (2+4 * lane + 2) && d > (2+4*lane - 2) )	//my lane?
 			{  				  
@@ -157,69 +176,54 @@ int main() {
             }
             
             // cost current lane
-            if( d < (2+4 * (lane + 0) + 2) && d > (2+4*(lane+0) - 2) )	// current lane?
-            {             
-			  if( check_car_s > (car_s + min_distance_car) )
-              {
-                cost[Keep_Lane] += 1.0 - check_speed/MAX_VELOCITY_KMPH; 
-              }
-            }
-            else
-            {
-              cost[Keep_Lane] += 0.0;
-            }
+//             if( d < (2+4 * (lane + 0) + 2) && d > (2+4*(lane+0) - 2) )	// current lane?
+//             {             
+// 			  if( check_car_s > (car_s + min_distance_car_front) )
+//               {
+//                 cost[Keep_Lane] += 1.0 - check_speed/MAX_VELOCITY_KMPH; 
+//               }
+//             }
             
-            // cost one lane right
+            // cost lane change right
             if( d < (2+4 * (lane + 1) + 2) && d > (2+4*(lane+1) - 2) && (lane + 1) <= 2  )	// car in right lane?
             {             
-              if(   ( check_car_s < car_s && (check_car_s + min_distance_car) > car_s )  
-                 || ( check_car_s > car_s && (check_car_s - min_distance_car) < car_s ) )
+              if(   ( check_car_s < car_s && (check_car_s + min_distance_car_back) > car_s )  	// car behind
+                 || ( check_car_s > car_s && (check_car_s - min_distance_car_front) < car_s ) ) // car in front
               {
                 //right lane not free                
-                cost[Lane_Change_Right] += 1.0;
-              }
-              else if( check_car_s > (car_s + min_distance_car) )
-              {
-                cost[Lane_Change_Right] += 1.0 - check_speed/MAX_VELOCITY_KMPH; 
+                cost[Lane_Change_Right] += 5.0;
               }
             }
-            else
-            {
-              cost[Lane_Change_Right] += 0.0;
-            }
+
             
-            // cost one lane left
+            // cost lane change left
             if( d < (2+4 * (lane - 1) + 2) && d > (2+4*(lane-1) - 2) && (lane - 1) >= 0  )	//car in left lane?
             {
-              if(   ( check_car_s < car_s && (check_car_s + min_distance_car) > car_s )  
-                 || ( check_car_s > car_s && (check_car_s - min_distance_car) < car_s ) )
+              if(   ( check_car_s < car_s && (check_car_s + min_distance_car_back) > car_s )  
+                 || ( check_car_s > car_s && (check_car_s - min_distance_car_front) < car_s ) )
               {
                 //right lane not free                
-                cost[Lane_Change_Left] += 1.0;
+                cost[Lane_Change_Left] += 5.0;
               }
-              else if( check_car_s > (car_s + min_distance_car) )
-              {
-                cost[Lane_Change_Left] += 1.0 - check_speed/MAX_VELOCITY_KMPH; 
-              }
-            }
-            else
-            {
-              cost[Lane_Change_Left] += 0.0;
             }
           }
 
-          int idx_min_cost = -1;
+          int best_lane = -1;
           float min_cost = 99999.0;
           for(int i = 0; i<3; i++)
           {
-            if(cost[i] < min_cost)
+            if(cost_lane[i] < min_cost)
             {
               min_cost = cost[i];
-              idx_min_cost = i;
+              best_lane = i;
             }
           }
+
+          std::cout<<"costs lane: ";
+          for(float c: cost_lane)std::cout << c << "  "; 
+          std::cout<<std::endl;
           
-          std::cout<<"costs: ";
+          std::cout<<"costs change: ";
           for(float c: cost)std::cout << c << "  "; 
           std::cout<<std::endl;
           
@@ -232,7 +236,6 @@ int main() {
               }
               else if(ref_vel < MAX_VELOCITY_MPH)
               {                
-                //ref_vel += .324;
                 ref_vel += .224;
               }  
               break;
