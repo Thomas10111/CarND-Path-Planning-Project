@@ -17,7 +17,7 @@ using std::vector;
 #define LANE_WIDTH_M (4)
 #define MINIMAL_GAP_M (30)
 #define MAX_VELOCITY_MPH (49.5)
-#define MAX_VELOCITY_KMPH (MAX_VELOCITY_MPH * 1.6)
+#define MAX_VELOCITY_KMPH (MAX_VELOCITY_MPH * 1.61)
 #define MIN_DISTANCE_CAR (10)
 
 enum behavior {Keep_Lane = 0, Lane_Change_Left = 1, Lane_Change_Right = 2};
@@ -100,6 +100,7 @@ int main() {
           double car_d = j[1]["d"];
           double car_yaw = j[1]["yaw"];
           double car_speed = j[1]["speed"];
+          car_speed = car_speed / 2.24;
 
           // Previous path data given to the Planner
           auto previous_path_x = j[1]["previous_path_x"];
@@ -130,14 +131,17 @@ int main() {
           if(lane == 2) cost[Lane_Change_Right] = 100;
           
           float dist_closes_car[Number_Lanes] = {99999.0, 99999.0, 99999.0};
+          int id_closes_car[Number_Lanes] = {-1, -1, -1};
           float cost_lane[] = {0.0, 0.0, 0.0};
+          
+          //float speed_car_too_close = -1.0;
           
 		  // lane 0 is left most lane
           for(int i = 0; i < sensor_fusion.size(); ++i)
 		  {
 			double vx = sensor_fusion[i][3]; // x velocity of car i
 			double vy = sensor_fusion[i][4]; // y velocity
-			double check_speed = sqrt(vx*vx + vy*vy);
+			double check_speed = sqrt(vx*vx + vy*vy);	// m/s
 			double check_car_s = sensor_fusion[i][5];  // s coordinate  
             check_car_s += ((double)prev_size * 0.02 * check_speed);
             float d = sensor_fusion[i][6];	// d value of car i, What lane is car i in?
@@ -146,7 +150,7 @@ int main() {
             float min_distance_car_front = (car_speed - check_speed) * 1.5 + MIN_DISTANCE_CAR;
             if(min_distance_car_front < MIN_DISTANCE_CAR) min_distance_car_front = MIN_DISTANCE_CAR;
             
-            float min_distance_car_back = (check_speed - car_speed) * 1.5 + MIN_DISTANCE_CAR;
+            float min_distance_car_back = (check_speed - car_speed) * 2.5 + MIN_DISTANCE_CAR;
             if(min_distance_car_back < MIN_DISTANCE_CAR) min_distance_car_back = MIN_DISTANCE_CAR;
             
             float distance = check_car_s - car_s;
@@ -161,17 +165,33 @@ int main() {
             
             
             // costs per lane
-            if(distance > min_distance_car_front && distance < dist_closes_car[check_lane])
+            if(distance > 0 && distance < dist_closes_car[check_lane])
             {
-              dist_closes_car[check_lane] = distance;       
-              cost_lane[check_lane] = 1.0 - check_speed/MAX_VELOCITY_KMPH; 
+              dist_closes_car[check_lane] = distance;
+              id_closes_car[check_lane] = i;
+              if(distance < min_distance_car_front)
+              {
+                // cannot change to this lane
+                cost_lane[check_lane] = 5.0; 
+              }
+              else
+              {
+              	cost_lane[check_lane] = 1.0 - check_speed/MAX_VELOCITY_KMPH; 
+              }
             }
             
             if( d < (2+4 * lane + 2) && d > (2+4*lane - 2) )	//my lane?
 			{  				  
               if( (check_car_s > car_s) && (check_car_s - car_s) < 30 ) // car in front?
               {
-                too_close = true;
+                if(car_speed > check_speed)
+                {
+                  too_close = true;
+                }
+                if( (check_car_s < car_s + 1.0) && (check_car_s > car_s) )
+                {
+                	std::cout << "***** CRASH *******" << std::endl;
+                }
               }              
             }
             
@@ -208,17 +228,10 @@ int main() {
             }
           }
 
-          int best_lane = -1;
-          float min_cost = 99999.0;
-          for(int i = 0; i<3; i++)
-          {
-            if(cost_lane[i] < min_cost)
-            {
-              min_cost = cost[i];
-              best_lane = i;
-            }
-          }
-
+          std::cout<<"id_closest_car: ";
+          for(float c: id_closes_car)std::cout << c << "  "; 
+          std::cout<<std::endl;
+          
           std::cout<<"costs lane: ";
           for(float c: cost_lane)std::cout << c << "  "; 
           std::cout<<std::endl;
@@ -227,12 +240,59 @@ int main() {
           for(float c: cost)std::cout << c << "  "; 
           std::cout<<std::endl;
           
-          switch(idx_min_cost)
+          // map action and current lane to next lane
+          int action_to_lane[3][3];
+          action_to_lane[0][Keep_Lane] = 0;
+          action_to_lane[0][Lane_Change_Right] = 1;
+          action_to_lane[0][Lane_Change_Left] = -1;
+          action_to_lane[1][Keep_Lane] = 1;
+          action_to_lane[1][Lane_Change_Right] = 2;
+          action_to_lane[1][Lane_Change_Left] = 0;
+          action_to_lane[2][Keep_Lane] = 2;
+          action_to_lane[2][Lane_Change_Right] = -1;
+          action_to_lane[2][Lane_Change_Left] = 1;
+                    
+          //total costs
+          float total_cost[] = {0.0, 0.0, 0.0}; 
+          for(int action = 0; action < 3; ++action)
+          {
+          	int target_lane = action_to_lane[lane][action];
+            float cost_target_lane = 9999;
+            
+            if(target_lane != -1)
+            {
+              cost_target_lane = cost_lane[action_to_lane[lane][action]];
+            }
+            
+            total_cost[action] = cost_target_lane + cost[action];
+          }
+          
+          std::cout<<"total costs: ";
+          for(float c: total_cost) std::cout << c << "  "; 
+          std::cout<<std::endl;
+          
+          int action_min_cost = -1;
+          float min_cost = 99999.0;
+          for(int action = 0; action < 3; ++action)
+          {
+            if(total_cost[action] < min_cost)
+            {
+              min_cost = total_cost[action];
+              action_min_cost = action;
+            }
+            std::cout<<"action: " << action << "  action_min_cost: " << action_min_cost << "   min_cost: " << min_cost << std::endl;
+          }
+          
+          
+          switch(action_min_cost)
           {
             case Keep_Lane:                        
               if( too_close )
               {
-                  ref_vel -= .224;  // 5m/s^2
+                 //ref_vel -= .224;  // 5m/s^2                
+                ref_vel -= .448;       
+                //float delta_speed = car_speed - speed_car_too_close;
+                //ref_vel = delta_speed * 			//0.8 m/s in 0.2s 
               }
               else if(ref_vel < MAX_VELOCITY_MPH)
               {                
