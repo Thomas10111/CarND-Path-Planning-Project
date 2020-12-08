@@ -19,6 +19,7 @@ using std::vector;
 #define MAX_VELOCITY_MPH (49.5)
 #define MAX_VELOCITY_KMPH (MAX_VELOCITY_MPH * 1.61)
 #define MIN_DISTANCE_CAR (10)
+#define COST_LANE_CHANGE (0.04)
 
 enum behavior {Keep_Lane = 0, Lane_Change_Left = 1, Lane_Change_Right = 2};
 int Number_Lanes = 3;
@@ -127,8 +128,24 @@ int main() {
 		  
 		  bool too_close = false;
 		  float cost[] = {0.0, 0.0, 0.0};
-          if(lane == 0) cost[Lane_Change_Left] = 100;
-          if(lane == 2) cost[Lane_Change_Right] = 100;
+          if(lane == 0)
+          {
+            cost[Keep_Lane] = 0;
+            cost[Lane_Change_Left] = 100;
+            cost[Lane_Change_Right] = COST_LANE_CHANGE;
+          }
+          if(lane == 1) 
+          {
+            cost[Keep_Lane] = 0;
+            cost[Lane_Change_Left] = COST_LANE_CHANGE;
+            cost[Lane_Change_Right] = COST_LANE_CHANGE;
+          }
+          if(lane == 2) 
+          {
+            cost[Keep_Lane] = 0;
+            cost[Lane_Change_Left] = COST_LANE_CHANGE;
+            cost[Lane_Change_Right] = 100;
+          }
           
           float dist_closes_car[Number_Lanes] = {99999.0, 99999.0, 99999.0};
           int id_closes_car[Number_Lanes] = {-1, -1, -1};
