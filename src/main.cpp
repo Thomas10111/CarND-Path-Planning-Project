@@ -18,7 +18,7 @@ using std::vector;
 #define MINIMAL_GAP_M (30)
 #define MAX_VELOCITY_MPH (49.5)
 #define MAX_VELOCITY_KMPH (MAX_VELOCITY_MPH * 1.61)
-#define MIN_DISTANCE_CAR (10)
+#define MIN_DISTANCE_CAR (15)
 #define COST_LANE_CHANGE (0.04)
 #define COST_COLLISION (5.0)
 #define COST_LEAVE_LANE (10.0)
@@ -186,7 +186,7 @@ int main() {
               }
               else
               {
-              	cost_lane[check_lane] = 1.0 - check_speed/MAX_VELOCITY_KMPH; 
+              	cost_lane[check_lane] = 1.0 - check_speed/MAX_VELOCITY_KMPH - distance/1000.0; 
               }
             }
             
@@ -203,16 +203,7 @@ int main() {
                 	std::cout << "***** CRASH *******" << std::endl;
                 }
               }              
-            }
-            
-            // cost current lane
-//             if( d < (2+4 * (lane + 0) + 2) && d > (2+4*(lane+0) - 2) )	// current lane?
-//             {             
-// 			  if( check_car_s > (car_s + min_distance_car_front) )
-//               {
-//                 cost[Keep_Lane] += 1.0 - check_speed/MAX_VELOCITY_KMPH; 
-//               }
-//             }
+            }            
             
             // cost lane change right
             if( d < (2+4 * (lane + 1) + 2) && d > (2+4*(lane+1) - 2) && (lane + 1) <= 2  )	// car in right lane?
