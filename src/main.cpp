@@ -20,9 +20,15 @@ using std::vector;
 #define MAX_VELOCITY_KMPH (MAX_VELOCITY_MPH * 1.61)
 #define MIN_DISTANCE_CAR (10)
 #define COST_LANE_CHANGE (0.04)
+#define COST_COLLISION (5.0)
+#define COST_LEAVE_LANE (10.0)
+#define NUMBER_LANES (3)
+#define NUMBER_ACTIONS (3)
+
 
 enum behavior {Keep_Lane = 0, Lane_Change_Left = 1, Lane_Change_Right = 2};
-int Number_Lanes = 3;
+
+
 
 int main() {
   uWS::Hub h;
@@ -126,32 +132,19 @@ int main() {
 			  car_s = end_path_s;
 		  }
 		  
-		  bool too_close = false;
-		  float cost[] = {0.0, 0.0, 0.0};
-          if(lane == 0)
-          {
-            cost[Keep_Lane] = 0;
-            cost[Lane_Change_Left] = 100;
-            cost[Lane_Change_Right] = COST_LANE_CHANGE;
-          }
-          if(lane == 1) 
-          {
-            cost[Keep_Lane] = 0;
-            cost[Lane_Change_Left] = COST_LANE_CHANGE;
-            cost[Lane_Change_Right] = COST_LANE_CHANGE;
-          }
-          if(lane == 2) 
-          {
-            cost[Keep_Lane] = 0;
-            cost[Lane_Change_Left] = COST_LANE_CHANGE;
-            cost[Lane_Change_Right] = 100;
-          }
+		  bool too_close = false;          
+           
+          // initial costs for an action in a certain lane
+          float cost[NUMBER_LANES][NUMBER_ACTIONS] = {
+            {0.0, COST_LEAVE_LANE, COST_LANE_CHANGE},
+            {0.0, COST_LANE_CHANGE, COST_LANE_CHANGE},
+            {0.0, COST_LANE_CHANGE, COST_LEAVE_LANE}
+          };
           
-          float dist_closes_car[Number_Lanes] = {99999.0, 99999.0, 99999.0};
-          int id_closes_car[Number_Lanes] = {-1, -1, -1};
-          float cost_lane[] = {0.0, 0.0, 0.0};
+          float dist_closes_car[NUMBER_LANES] = {99999.0, 99999.0, 99999.0};
+          int id_closest_car[NUMBER_LANES] = {-1, -1, -1};	// id of the clostest cars on each lane
+          float cost_lane[NUMBER_LANES] = {0.0, 0.0, 0.0};	// How good is a lane? 
           
-          //float speed_car_too_close = -1.0;
           
 		  // lane 0 is left most lane
           for(int i = 0; i < sensor_fusion.size(); ++i)
@@ -185,11 +178,11 @@ int main() {
             if(distance > 0 && distance < dist_closes_car[check_lane])
             {
               dist_closes_car[check_lane] = distance;
-              id_closes_car[check_lane] = i;
+              id_closest_car[check_lane] = i;
               if(distance < min_distance_car_front)
               {
                 // cannot change to this lane
-                cost_lane[check_lane] = 5.0; 
+                cost_lane[check_lane] = COST_COLLISION; 
               }
               else
               {
@@ -228,7 +221,7 @@ int main() {
                  || ( check_car_s > car_s && (check_car_s - min_distance_car_front) < car_s ) ) // car in front
               {
                 //right lane not free                
-                cost[Lane_Change_Right] += 5.0;
+                cost[lane][Lane_Change_Right] += COST_COLLISION;
               }
             }
 
@@ -240,13 +233,13 @@ int main() {
                  || ( check_car_s > car_s && (check_car_s - min_distance_car_front) < car_s ) )
               {
                 //right lane not free                
-                cost[Lane_Change_Left] += 5.0;
+                cost[lane][Lane_Change_Left] += COST_COLLISION;
               }
             }
           }
 
           std::cout<<"id_closest_car: ";
-          for(float c: id_closes_car)std::cout << c << "  "; 
+          for(float c: id_closest_car)std::cout << c << "  "; 
           std::cout<<std::endl;
           
           std::cout<<"costs lane: ";
@@ -254,7 +247,7 @@ int main() {
           std::cout<<std::endl;
           
           std::cout<<"costs change: ";
-          for(float c: cost)std::cout << c << "  "; 
+          for(float c: cost[lane])std::cout << c << "  "; 
           std::cout<<std::endl;
           
           // map action and current lane to next lane
@@ -270,7 +263,7 @@ int main() {
           action_to_lane[2][Lane_Change_Left] = 1;
                     
           //total costs
-          float total_cost[] = {0.0, 0.0, 0.0}; 
+          float total_cost[] = {0.0, 0.0, 0.0}; // costs for lane and action 
           for(int action = 0; action < 3; ++action)
           {
           	int target_lane = action_to_lane[lane][action];
@@ -281,7 +274,7 @@ int main() {
               cost_target_lane = cost_lane[action_to_lane[lane][action]];
             }
             
-            total_cost[action] = cost_target_lane + cost[action];
+            total_cost[action] = cost_target_lane + cost[lane][action];
           }
           
           std::cout<<"total costs: ";
@@ -305,15 +298,12 @@ int main() {
           {
             case Keep_Lane:                        
               if( too_close )
-              {
-                 //ref_vel -= .224;  // 5m/s^2                
+              {              
                 ref_vel -= .448;       
-                //float delta_speed = car_speed - speed_car_too_close;
-                //ref_vel = delta_speed * 			//0.8 m/s in 0.2s 
               }
               else if(ref_vel < MAX_VELOCITY_MPH)
               {                
-                ref_vel += .224;
+                ref_vel += .224;	// from Q&A
               }  
               break;
             case Lane_Change_Left:
