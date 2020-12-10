@@ -241,18 +241,6 @@ int main() {
           for(float c: cost[lane])std::cout << c << "  "; 
           std::cout<<std::endl;
           
-          // map action and current lane to next lane
-          int action_to_lane[3][3];
-          action_to_lane[0][Keep_Lane] = 0;
-          action_to_lane[0][Lane_Change_Right] = 1;
-          action_to_lane[0][Lane_Change_Left] = -1;
-          action_to_lane[1][Keep_Lane] = 1;
-          action_to_lane[1][Lane_Change_Right] = 2;
-          action_to_lane[1][Lane_Change_Left] = 0;
-          action_to_lane[2][Keep_Lane] = 2;
-          action_to_lane[2][Lane_Change_Right] = -1;
-          action_to_lane[2][Lane_Change_Left] = 1;
-          
           // What action do we need to get to from lane1 to lane2?
           int target_lane_to_action[3][3];
           target_lane_to_action[0][0] = Keep_Lane;
@@ -275,26 +263,11 @@ int main() {
             cost_target_lane = cost_lane[target_lane];
             
             // in case more than one lane needs to be passed, take the value of the best lane;
-            // it might take some lane shifts till we reach it
+            // it might take some lane shifts till we reach it. The cost is only for one shift
+            // in the direction of the best lane.
             if(cost_target_lane + cost[lane][action] < total_cost[action])
             	total_cost[action] = cost_target_lane + cost[lane][action];
           }
-          
-          /*          
-          //total costs
-          float total_cost[] = {0.0, 0.0, 0.0}; // costs for lane and action 
-          for(int action = 0; action < 3; ++action)
-          {
-          	int target_lane = action_to_lane[lane][action];
-            float cost_target_lane = 9999;
-            
-            if(target_lane != -1)
-            {
-              cost_target_lane = cost_lane[action_to_lane[lane][action]];
-            }
-            
-            total_cost[action] = cost_target_lane + cost[lane][action];
-          }*/
           
           std::cout<<"total costs: ";
           for(float c: total_cost) std::cout << c << "  "; 
