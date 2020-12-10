@@ -274,6 +274,8 @@ int main() {
             
             cost_target_lane = cost_lane[target_lane];
             
+            // in case more than one lane needs to be passed, take the value of the best lane;
+            // it might take some lane shifts till we reach it
             if(cost_target_lane + cost[lane][action] < total_cost[action])
             	total_cost[action] = cost_target_lane + cost[lane][action];
           }
