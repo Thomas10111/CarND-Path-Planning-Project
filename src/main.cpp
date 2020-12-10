@@ -252,7 +252,33 @@ int main() {
           action_to_lane[2][Keep_Lane] = 2;
           action_to_lane[2][Lane_Change_Right] = -1;
           action_to_lane[2][Lane_Change_Left] = 1;
-                    
+          
+          // What action do we need to get to from lane1 to lane2?
+          int target_lane_to_action[3][3];
+          target_lane_to_action[0][0] = Keep_Lane;
+          target_lane_to_action[0][1] = Lane_Change_Right;
+          target_lane_to_action[0][2] = Lane_Change_Right;
+          target_lane_to_action[1][0] = Lane_Change_Left;
+          target_lane_to_action[1][1] = Keep_Lane;
+          target_lane_to_action[1][2] = Lane_Change_Right;
+          target_lane_to_action[2][0] = Lane_Change_Left;
+          target_lane_to_action[2][1] = Lane_Change_Left;
+          target_lane_to_action[2][2] = Keep_Lane;
+          
+          //total costs
+          float total_cost[] = {9999.0, 9999.0, 9999.0}; // costs for lane and action 
+          for(int target_lane = 0; target_lane < 3; ++target_lane)
+          {
+            int action = target_lane_to_action[lane][target_lane];
+            float cost_target_lane = 9999;
+            
+            cost_target_lane = cost_lane[target_lane];
+            
+            if(cost_target_lane + cost[lane][action] < total_cost[action])
+            	total_cost[action] = cost_target_lane + cost[lane][action];
+          }
+          
+          /*          
           //total costs
           float total_cost[] = {0.0, 0.0, 0.0}; // costs for lane and action 
           for(int action = 0; action < 3; ++action)
@@ -266,7 +292,7 @@ int main() {
             }
             
             total_cost[action] = cost_target_lane + cost[lane][action];
-          }
+          }*/
           
           std::cout<<"total costs: ";
           for(float c: total_cost) std::cout << c << "  "; 
